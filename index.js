@@ -7,17 +7,6 @@ allDepartments = [];
 allRoles = [];
 allEmps = [];
 
-// const db = mysql.createConnection(
-//     {
-//       host: 'localhost',
-//       // MySQL username,
-//       user: 'root',
-//       // TODO: Add MySQL password here
-//       password: 'GameD232447!$',
-//       database: 'employeetracker_db'
-//     },
-//     console.log(`Connected to the employeetracker_db database.`)
-//   );
 
 function employeeManagement() {
   function executiveQueries() {
@@ -61,7 +50,7 @@ function employeeManagement() {
             updateEmpMgr();
             break;
           case 'Quit':
-            return;
+            db.end();
         }
       });
   }
@@ -73,17 +62,18 @@ function employeeManagement() {
       if (err) {
         console.log(`Error, please check sql/javascript syntax`);
       } else {
-        console.log(result);
         console.table(result);
+        executiveQueries();
       }
-    });
+    })
+
   };
   function addDept() {
     inquirer
       .prompt([
         {
           type: 'input',
-          name: 'departnameName',
+          name: 'departmentName',
           message: "What is the name of the department?",
           validate: (answer) => {
             if (answer !== '') {
@@ -106,45 +96,41 @@ function employeeManagement() {
         }
       ])
       .then((answers) => {
-        db.promise().query(`INSERT INTO department set ${answers}`, (err, result) => {
+        let departmentId = answers.departmentId;
+        let departmentName = answers.departmentName;
+        let crit = [departmentId, departmentName]
+        db.query(`INSERT INTO department (id, name) VALUES (?, ?)`, crit, (err, result) => {
           if (err) {
             console.log(`Error, please check sql/javascript syntax`);
           } else {
             console.table(result);
-          }
-        })
-      })
-      .then(() => {
-        db.query(`SELECT * FROM department`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            console.table(result);
+            viewAllDepts();
           }
         })
       });
-    executiveQueries();
   };
   function viewAllRoles() {
-    const sql = `SELECT id, title, salary, name
-         FROM role FULL JOIN department ON role.department=department.id`;
+    const sql = `SELECT role.id, role.title, department.name AS department
+    FROM role
+    INNER JOIN department ON role.department_id = department.id`;
 
     db.query(sql, (err, result) => {
       if (err) {
         console.log(`Error, please check sql/javascript syntax`);
+        return;
       } else {
         console.table(result);
+        executiveQueries();
       }
-    });
+    })
   };
   function addRole() {
     const sql = `SELECT * FROM department`;
     db.query(sql, (err, result) => {
       if (err) {
-        console.log(`Error, please check sql/javascript syntax`);
+        console.log(err);
         return;
       }
-
       inquirer
         .prompt([
           {
@@ -184,34 +170,30 @@ function employeeManagement() {
           },
           {
             type: 'list',
-            name: 'departmentList',
+            name: 'departmentRole',
             message: "What department does the role belong to?",
-            choices: result.map((row) => ({ 
+            choices: result.map((row) => ({
               name: row.name,
               value: row.id
-            })) 
+            }))
           }
         ])
         .then((answers) => {
-          db.promise().query(`INSERT INTO role set ${answers}`, (err, result) => {
+          let roleId = answers.roleId;
+          let roleName = answers.roleName;
+          let roleSalary = answers.roleSalary;
+          let departmentRole = answers.departmentRole
+          let crit = [roleId, roleName, roleSalary, departmentRole]
+          db.query(`INSERT INTO role (id, title, salary, department_id) VALUES (?, ?, ?, ?)`, crit, (err, result) => {
             if (err) {
-              console.log(`Error, please check sql/javascript syntax`);
+              console.log(err);
+              return;
             } else {
               console.table(result);
+              viewAllRoles();
             }
           })
         })
-        .then(() => {
-          db.query(`SELECT id, title, salary, name
-          FROM role FULL JOIN department ON role.department=department.id`, (err, result) => {
-            if (err) {
-              console.log(`Error, please check sql/javascript syntax`);
-            } else {
-              console.table(result);
-            }
-          })
-        });
-      // executiveQueries();
     });
   }
 
@@ -221,162 +203,206 @@ function employeeManagement() {
     db.query(sql, (err, result) => {
       if (err) {
         console.log(`Error, please check sql/javascript syntax`);
+        return;
       } else {
         console.table(result);
+        executiveQueries();
       }
-    });
+    })
   };
   function addEmp() {
-    inquirer
-      .prompt([
-        {
-          type: 'input',
-          name: 'employeeFn',
-          message: "What is the first name of the employee?",
-          validate: (answer) => {
-            if (answer !== '') {
-              return true;
+    const sql = `SELECT * FROM role`;
+    db.query(sql, (err, result) => {
+      if (err) {
+        console.log(err);
+        return;
+      }
+      inquirer
+        .prompt([
+          {
+            type: 'input',
+            name: 'employeeFn',
+            message: "What is the first name of the employee?",
+            validate: (answer) => {
+              if (answer !== '') {
+                return true;
+              }
+              return 'Please enter at least one character.';
             }
-            return 'Please enter at least one character.';
-          }
-        },
-        {
-          type: 'input',
-          name: 'employeeLn',
-          message: "What is the last name of the employee?",
-          validate: (answer) => {
-            if (answer !== '') {
-              return true;
+          },
+          {
+            type: 'input',
+            name: 'employeeLn',
+            message: "What is the last name of the employee?",
+            validate: (answer) => {
+              if (answer !== '') {
+                return true;
+              }
+              return 'Please enter at least one character.';
             }
-            return 'Please enter at least one character.';
-          }
-        },
-        {
-          type: 'list',
-          name: 'roleList',
-          message: "What role does the employee have?",
-          choices: allRoles
-
-        },
-        {
-          type: 'list',
-          name: 'managerList',
-          message: "Who's the employee's manager?",
-          choices: allEmps
-        }
-      ])
-      .then((answers) => {
-        db.promise().query(`INSERT INTO employee set ${answers}`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            console.table(result);
-          }
-        })
-      })
-      .then(() => {
-        db.query(`SELECT name FROM department FULL JOIN role ON role.department=department.id`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            db.query(`SELECT id, first_name, last_name, manager_id, title, salary, department FROM employees FULL JOIN role ON employees.role=role.id`, (err, result) => {
-              if (err) {
-                console.log(`Error, please check sql/javascript syntax`);
-              } else {
-
-                console.table(result);
+          },
+          {
+            type: 'input',
+            name: 'empId',
+            message: "What is the employee's id?",
+            validate: (answer) => {
+              const pass = answer.match(/^[1-9]\d*$/)
+              if (pass) {
+                return true;
               }
-            })
+              return 'Please enter a number greater than zero';
+            },
+          },
+          {
+            type: 'list',
+            name: 'roleId',
+            message: "What role does the employee have?",
+            choices: result.map((row) => ({
+              name: row.title,
+              value: row.id
+            }))
           }
+        ])
+        .then((answers) => {
+          let empId = answers.empId;
+          let firstname = answers.employeeFn;
+          let lastname = answers.employeeLn;
+          let role = answers.roleId;
+          let crit = [empId, firstname, lastname, role]
+          db.query(`INSERT INTO employees (id, first_name, last_name, role_id) VALUES (?, ?, ?, ?)`, crit, (err, result) => {
+            if (err) {
+              console.log(err);
+              return;
+            } else {
+              console.table(result);
+              viewAllEmps();
+              executiveQueries();
+            }
+          })
         })
-      });
-    executiveQueries();
+    })
   };
-  function updateEmpRole() {
-    inquirer
-      .prompt([
-        {
-          type: 'list',
-          name: 'employeeList',
-          message: "Who's the employee?",
-          choices: allEmps
-        },
-        {
-          type: 'list',
-          name: 'roleList',
-          message: "What's the employee's new role?",
-          choices: allRoles
-        }
-      ])
-      .then((answers) => {
-        db.promise().query(`INSERT INTO role set ${answers}`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            console.table(result);
-          }
-        })
-      })
-      .then(() => {
-        db.query(`SELECT name FROM department FULL JOIN role ON role.department=department.id`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            db.query(`SELECT id, first_name, last_name, manager_id, title, salary, department FROM employees FULL JOIN role ON employees.role=role.id`, (err, result) => {
-              if (err) {
-                console.log(`Error, please check sql/javascript syntax`);
-              } else {
+  const updateEmpRole = () => {
+    let sql = `SELECT employees.id, employees.first_name, employees.last_name, role.id AS "role_id"
+                    FROM employees, role, department WHERE department.id = role.department_id AND role.id = employees.role_id`;
+    db.query(sql, (error, response) => {
+      if (error) throw error;
+      let employeeNamesArr = [];
+      response.forEach((employees) => { employeeNamesArr.push(`${employees.first_name} ${employees.last_name}`); });
 
-                console.table(result);
+      let sql2 = `SELECT role.id, role.title FROM role`;
+      db.query(sql2, (error, response) => {
+        if (error) throw error;
+        let rolesArr = [];
+        response.forEach((role) => { rolesArr.push(role.title); });
+
+        inquirer
+          .prompt([
+            {
+              name: 'chosenEmp',
+              type: 'list',
+              message: 'Which employee has a new role?',
+              choices: employeeNamesArr
+            },
+            {
+              name: 'chosenRole',
+              type: 'list',
+              message: 'What is their new role?',
+              choices: rolesArr
+            }
+          ])
+          .then((answer) => {
+            let newRoleId, empId;
+
+            response.forEach((role) => {
+              if (answer.chosenRole === role.title) {
+                newRoleId = role.id;
               }
-            })
-          }
-        })
+            });
+
+            response.forEach((employees) => {
+              if (
+                answer.chosenEmp ===
+                `${employees.first_name} ${employees.last_name}`
+              ) {
+                empId = employees.id;
+              }
+            });
+
+            let sqls = `UPDATE employees SET employees.role_id = ? WHERE employees.id = ?`;
+            db.query(
+              sqls,
+              [newRoleId, empId],
+              (error) => {
+                if (error) throw error;
+                viewAllEmps();
+                executiveQueries();
+              }
+            );
+          });
       });
-    executiveQueries();
+    });
   };
-  function updateEmpMgr() {
-    inquirer
-      .prompt([
-        {
-          type: 'list',
-          name: 'employeeList',
-          message: "Who's the employee?",
-          choices: allEmps
-        },
-        {
-          type: 'list',
-          name: 'managerList',
-          message: "Who's the employee's manager?",
-          choices: allRoles
-        }
-      ])
-      .then((answers) => {
-        db.promise().query(`INSERT INTO employees set ${answers}`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            console.table(result);
-          }
-        })
-      })
-      .then(() => {
-        db.query(`SELECT name FROM department FULL JOIN role ON role.department=department.id`, (err, result) => {
-          if (err) {
-            console.log(`Error, please check sql/javascript syntax`);
-          } else {
-            db.query(`SELECT id, first_name, last_name, manager_id, title, salary, department FROM employees FULL JOIN role ON employees.role=role.id`, (err, result) => {
-              if (err) {
-                console.log(`Error, please check sql/javascript syntax`);
-              } else {
 
-                console.table(result);
-              }
-            })
+  // Update an Employee's Manager
+  const updateEmpMgr = () => {
+    let sql = `SELECT employees.id, employees.first_name, employees.last_name, employees.manager_id
+                    FROM employees`;
+    db.query(sql, (error, response) => {
+      let empNamesArr = [];
+      response.forEach((employee) => { empNamesArr.push(`${employee.first_name} ${employee.last_name}`); });
+
+      inquirer
+        .prompt([
+          {
+            name: 'chosenEmp',
+            type: 'list',
+            message: 'Which employee has a new manager?',
+            choices: empNamesArr
+          },
+          {
+            name: 'newMgr',
+            type: 'list',
+            message: 'Who is their manager?',
+            choices: empNamesArr
           }
-        })
-      });
-    executiveQueries();
+        ])
+        .then((answer) => {
+          let empId, mgrId;
+          response.forEach((employee) => {
+            if (
+              answer.chosenEmp === `${employee.first_name} ${employee.last_name}`
+            ) {
+              empId = employee.id;
+            }
+
+            if (
+              answer.newMgr === `${employee.first_name} ${employee.last_name}`
+            ) {
+              mgrId = employee.id;
+            }
+          });
+
+          if (answer.chosenEmp === answer.newMgr) {
+            console.log(chalk.redBright.bold(`====================================================================================`));
+            console.log(chalk.redBright(`Invalid Manager Selection`));
+            console.log(chalk.redBright.bold(`====================================================================================`));
+            executiveQueries();
+          } else {
+            let sql = `UPDATE employees SET employees.manager_id = ? WHERE employees.id = ?`;
+
+            db.query(
+              sql,
+              [mgrId, empId],
+              (error) => {
+                if (error) throw error;
+                viewAllEmps();
+                executiveQueries();
+              }
+            );
+          }
+        });
+    });
   };
 };
 employeeManagement();
